@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  db:
+    container_name: db
+    image: mariadb:10.6
+    restart: always
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d
+      - ./db/data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+
+  cloud:
+    container_name: cloud
+    image: nextcloud
+    restart: always
+    ports:
+      - 80:80
+    volumes:
+      - ./cloud/init:/init
+      - ./cloud/data:/var/www/html
+    links:
+      - db
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud
+
+  git:
+    container_name: git
+    image: gogs/gogs
+    restart: always
+    ports:
+      - 3000:3000
+      # - "10022:22"
+    volumes:
+      - ./git/init:/init
+      - ./git/data:/var/gogs/data
+
+  mail:
+    container_name: mail
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    restart: always
+    hostname: mail.localhost # DNS MX record should point to this value
+    env_file: ./mail/mailserver.env
+    ports:
+      - "25:25"    # SMTP  (explicit TLS => STARTTLS)
+      - "143:143"  # IMAP4 (explicit TLS => STARTTLS)
+      - "465:465"  # ESMTP (implicit TLS)
+      - "587:587"  # ESMTP (explicit TLS => STARTTLS)
+      - "993:993"  # IMAP4 (implicit TLS)
+    volumes:
+      - ./mail/data/data/:/var/mail/
+      - ./mail/data/state/:/var/mail-state/
+      - ./mail/data/logs/:/var/log/mail/
+      - ./mail/data/config/:/tmp/docker-mailserver/
+      - /etc/localtime:/etc/localtime:ro
+    stop_grace_period: 1m
+    healthcheck:
+      test: "ss --listening --tcp | grep -P 'LISTEN.+:smtp' || exit 1"
+      timeout: 3s
+      retries: 0
+
+
+    # nginx

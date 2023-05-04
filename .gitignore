@@ -1,0 +1,12 @@
+cloud/*
+
+db/*
+!db/init/*
+
+git/*
+
+mail/*
+!mail/mailserver.env
+
+proxy/*
+!proxy/config/default.conf
